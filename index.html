@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>알파벳 컵 내비게이터</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000000;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        /* U자 형태의 흰색 상자 */
+        #box-container {
+            position: relative;
+            width: 300px;
+            height: 500px;
+            border-left: 4px solid #ffffff;
+            border-right: 4px solid #ffffff;
+            border-bottom: 4px solid #ffffff;
+        }
+
+        /* 개별 알파벳 스타일 */
+        .letter {
+            position: absolute;
+            color: #777777; /* 기본 상태: 연한 회색 */
+            font-size: 42px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transform-origin: center;
+            transition: color 0.2s ease, text-shadow 0.2s ease;
+        }
+
+        /* 마우스를 올렸을 때의 시각적 피드백 */
+        .letter:hover {
+            color: #ffffff; /* 호버 상태: 빛나는 흰색 */
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.9), 0 0 20px rgba(255, 255, 255, 0.5);
+            z-index: 100;
+        }
+
+        /* 하단 설명 text */
+        #description {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="box-container"></div>
+    <div id="description">입장 시 알파벳들이 위에서 투두둑 떨어져 쌓임. 클릭하면 해당 페이지로 이동.</div>
+
+    <script>
+        const Engine = Matter.Engine,
+              Render = Matter.Render,
+              Runner = Matter.Runner,
+              Bodies = Matter.Bodies,
+              Composite = Matter.Composite;
+
+        const engine = Engine.create();
+        const world = engine.world;
+
+        const container = document.getElementById('box-container');
+        const boxWidth = 300;
+        const boxHeight = 500;
+        const wallThickness = 100; 
+
+        const ground = Bodies.rectangle(boxWidth / 2, boxHeight + wallThickness / 2, boxWidth, wallThickness, { isStatic: true });
+        const leftWall = Bodies.rectangle(-wallThickness / 2, boxHeight / 2, wallThickness, boxHeight * 2, { isStatic: true });
+        const rightWall = Bodies.rectangle(boxWidth + wallThickness / 2, boxHeight / 2, wallThickness, boxHeight * 2, { isStatic: true });
+
+        Composite.add(world, [ground, leftWall, rightWall]);
+
+        const alphabets = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+        const bodies = [];
+        const domElements = [];
+
+        alphabets.forEach((char, index) => {
+            const el = document.createElement('div');
+            el.className = 'letter';
+            el.innerText = char;
+            container.appendChild(el);
+            domElements.push(el);
+
+            const x = Math.random() * (boxWidth - 60) + 30;
+            const y = -(Math.random() * 200) - (index * 50);
+            const size = 35;
+
+            const body = Bodies.rectangle(x, y, size, size, {
+                restitution: 0.4,
+                friction: 0.3,
+                density: 0.05
+            });
+
+            // 클릭 이벤트 (클릭 엔진)
+            el.addEventListener('click', () => {
+                const lowerChar = char.toLowerCase();
+                const url = `${lowerChar}.html`;
+                
+                // 실사용 시 아래 window.location.href 주석 해제
+                // window.location.href = url;
+                alert(`'${char}' 클릭됨 -> ${url} 로 이동!`);
+            });
+
+            bodies.push(body);
+            Composite.add(world, body);
+        });
+
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        function update() {
+            for (let i = 0; i < bodies.length; i++) {
+                const body = bodies[i];
+                const el = domElements[i];
+
+                el.style.left = (body.position.x - el.offsetWidth / 2) + 'px';
+                el.style.top = (body.position.y - el.offsetHeight / 2) + 'px';
+                el.style.transform = `rotate(${body.angle}rad)`;
+            }
+            requestAnimationFrame(update);
+        }
+
+        update();
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>알파벳 컵 내비게이터 (95px & 드래그 오류 수정)</title>
+    <title>알파벳 컵 내비게이터 (90px & 고마찰력)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body {
@@ -20,11 +20,11 @@
             touch-action: none; 
         }
 
-        /* U자 상자 크기를 폰트 크기에 맞춰서 좀 더 키움 */
+        /* 다시 원래 컵 크기로 복구 (300 x 500) */
         #box-container {
             position: relative;
-            width: 400px;  /* 300px -> 400px */
-            height: 600px; /* 500px -> 600px */
+            width: 300px;  
+            height: 500px; 
             border-left: 4px solid #ffffff;
             border-right: 4px solid #ffffff;
             border-bottom: 4px solid #ffffff;
@@ -33,13 +33,13 @@
         .letter {
             position: absolute;
             color: #777777;
-            font-size: 95px; /* 요청한 95px 폰트 크기 */
+            font-size: 90px; /* 90px로 조정 */
             font-weight: bold;
             cursor: grab;
             user-select: none;
             transform-origin: center;
             transition: color 0.2s ease, text-shadow 0.2s ease;
-            line-height: 1; /* 높이 여백 최소화 */
+            line-height: 1; 
         }
 
         .letter:active {
@@ -67,7 +67,7 @@
 <body>
 
     <div id="box-container"></div>
-    <div id="description">글자 크기 95px 적용 완료. 드래그/클릭 충돌 해결.</div>
+    <div id="description">크기 90px, 높은 마찰력 적용. 좁은 컵에서도 안정적으로 쌓임.</div>
 
     <script>
         const Engine = Matter.Engine,
@@ -81,21 +81,19 @@
         const world = engine.world;
 
         const container = document.getElementById('box-container');
-        const boxWidth = 400; 
-        const boxHeight = 600;
+        const boxWidth = 300; // 원래 너비
+        const boxHeight = 500; // 원래 높비
         const wallThickness = 100; 
 
-        // 상자 벽 만들기
         const ground = Bodies.rectangle(boxWidth / 2, boxHeight + wallThickness / 2, boxWidth, wallThickness, { isStatic: true });
-        const leftWall = Bodies.rectangle(-wallThickness / 2, boxHeight / 2, wallThickness, boxHeight, { isStatic: true });
-        const rightWall = Bodies.rectangle(boxWidth + wallThickness / 2, boxHeight / 2, wallThickness, boxHeight, { isStatic: true });
+        const leftWall = Bodies.rectangle(-wallThickness / 2, boxHeight / 2, wallThickness, boxHeight * 2, { isStatic: true });
+        const rightWall = Bodies.rectangle(boxWidth + wallThickness / 2, boxHeight / 2, wallThickness, boxHeight * 2, { isStatic: true });
 
         Composite.add(world, [ground, leftWall, rightWall]);
 
         let letterObjects = [];
         const alphabets = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
 
-        // 드래그 설정 (Matter.js 내장 마우스 컨트롤)
         const mouse = Mouse.create(document.body);
         const mouseConstraint = MouseConstraint.create(engine, {
             mouse: mouse,
@@ -106,22 +104,21 @@
         });
         Composite.add(world, mouseConstraint);
 
-        // 글자 생성 함수
         function createLetter(char, x, y) {
             const el = document.createElement('div');
             el.className = 'letter';
             el.innerText = char;
             container.appendChild(el);
 
-            // ★ 해결 2: 물리 엔진 크기 동기화 (95px 폰트의 약 80% 수준인 75px로 설정)
-            const size = 75; 
+            // 90px 폰트에 맞춘 물리 영역 (약 72px)
+            const size = 72; 
             const body = Bodies.rectangle(x, y, size, size, {
-                restitution: 0.4,
-                friction: 0.3,
+                restitution: 0.1,  /* 탄성 대폭 감소: 안 튀어오름 */
+                friction: 0.8,     /* 마찰력 대폭 증가: 잘 미끄러지지 않음 */
+                frictionStatic: 2, /* 정지 마찰력 증가: 일단 멈추면 꽉 물림 */
                 density: 0.05
             });
 
-            // ★ 해결 1: 마우스 눌렀을 때와 뗐을 때의 좌표 차이로 클릭 vs 드래그 구분
             let startX = 0, startY = 0;
 
             el.addEventListener('mousedown', (e) => {
@@ -133,7 +130,6 @@
                 const diffX = Math.abs(e.clientX - startX);
                 const diffY = Math.abs(e.clientY - startY);
 
-                // 마우스가 이동한 거리가 5px 미만이면 클릭으로 인정
                 if (diffX < 5 && diffY < 5) {
                     const lowerChar = char.toLowerCase();
                     const url = `${lowerChar}.html`;
@@ -147,29 +143,26 @@
             letterObjects.push({ char, body, el });
         }
 
-        // 초기 글자 투하 (글자가 커졌으므로 y축 시작 위치를 더 높게 잡아서 천천히 쏟아지게 함)
+        // 좁은 곳에 큰 글자들이 쏟아지므로, 떨어지는 간격(y)을 넓혀서 병목 현상 방지
         alphabets.forEach((char, index) => {
             const x = Math.random() * (boxWidth - 100) + 50;
-            const y = -(Math.random() * 800) - (index * 80);
+            const y = -(Math.random() * 500) - (index * 100);
             createLetter(char, x, y);
         });
 
         const runner = Runner.create();
         Runner.run(runner, engine);
 
-        // 프레임 업데이트
         function update() {
             for (let i = letterObjects.length - 1; i >= 0; i--) {
                 const obj = letterObjects[i];
                 const body = obj.body;
                 const el = obj.el;
 
-                // DOM 위치 및 회전 동기화
                 el.style.left = (body.position.x - el.offsetWidth / 2) + 'px';
                 el.style.top = (body.position.y - el.offsetHeight / 2) + 'px';
                 el.style.transform = `rotate(${body.angle}rad)`;
 
-                // 컵 밖으로 던져졌는지 확인
                 if (body.position.y > boxHeight + 300) {
                     Matter.Composite.remove(world, body);
                     el.remove();
